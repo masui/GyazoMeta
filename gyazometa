@@ -1,16 +1,21 @@
 #!/usr/bin/env ruby
-# encoding: utf-8
+# -*- coding: utf-8 -*-
 
 require 'net/http'
 require 'json'
+require 'digest/md5'
 
 Encoding.default_external = Encoding::UTF_8
 
 # get id
 user = IO.popen("whoami", "r+").gets.chomp
-program = ARGV[0].to_s
+# program = ARGV[0].to_s ???
+program = ''
+file = ARGV.shift
 idfile = "/Users/#{user}/Library/Gyazo/id"
 old_idfile = File.dirname(program) + "/gyazo.app/Contents/Resources/id"
+
+puts file
 
 id = ''
 if File.exist?(idfile) then
@@ -155,13 +160,29 @@ case front_app_name.chomp
 end
 
 puts front_window_data
-window_app, window_title, windor_url = front_window_data.to_s.split("\n")
+window_app, window_title, window_url = front_window_data.to_s.split("\n")
+
+note = <<EOF
+#{window_app}, #{window_title}
+#{window_url}
+EOF
+
+hash = ''
+ext = ''
+if file then # Drag&Dropされたファイルをアップロード
+  hash = Digest::MD5.new.update(File.read(file)).to_s
+  ext = (file =~ /(\.\w+)$/ ? $& : '')
+  note += "http://gyazz.masuilab.org/upload/#{hash}#{ext}" + "\n"
+  note += File.mtime(file).strftime('%Y%m%d%H%M%S') + "\n"
+  note += File.mtime(file).strftime('%Y%m%d') + "\n"
+  note += File.mtime(file).strftime('%Y%m') + "\n"
+end
 
 metadata = JSON.generate({
   app: window_app,
   title: window_title,
-  url: windor_url,
-  note: "#{window_app}, #{window_title}\n#{windor_url}"
+  url: window_url,
+  note: note
 })
 puts metadata
 
@@ -219,3 +240,8 @@ Net::HTTP.start(HOST, PORT){|http|
     end
   end
 }
+
+if file then
+  system "/usr/bin/scp #{file} masui.sfc.keio.ac.jp:/Users/masui/Gyazz/public/upload/#{hash}#{ext}"
+  system "/usr/bin/ssh masui.sfc.keio.ac.jp chmod 644 /Users/masui/Gyazz/public/upload/#{hash}#{ext}"
+end

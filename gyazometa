@@ -17,11 +17,14 @@ Encoding.default_external = Encoding::UTF_8
 user = IO.popen("whoami", "r+").gets.chomp
 # program = ARGV[0].to_s ???
 program = ''
+path = $0
 file = ARGV.shift
 idfile = "/Users/#{user}/Library/Gyazo/id"
 old_idfile = File.dirname(program) + "/gyazo.app/Contents/Resources/id"
 
-system "open #{file}"
+if path =~ /Contents\/Resources\/script$/
+  system "open #{file}"
+end
 
 id = ''
 if File.exist?(idfile) then
@@ -36,20 +39,20 @@ imagefile = ARGV[1]
 sound_file = File.dirname(program) + "/shutter.aiff"
 
 if imagefile && File.exist?(imagefile) then
-  system "sips -s format png \"#{imagefile}\" --out \"#{tmpfile}\""
+  system "sips -s format png \"#{imagefile}\" --out \"#{tmpfile}\" > /dev/null >& /dev/null"
 else
-  system "screencapture -x -i \"#{tmpfile}\""
+  system "screencapture -x -i \"#{tmpfile}\" > /dev/null >& /dev/null"
   if File.exist?(tmpfile) then
-    system "afplay #{sound_file}"
-    system "sips -d profile --deleteColorManagementProperties \"#{tmpfile}\""
-    dpiWidth    = `sips -g dpiWidth "#{tmpfile}" | awk '/:/ {print $2}'`
-    dpiHeight   = `sips -g dpiHeight "#{tmpfile}" | awk '/:/ {print $2}'`
-    pixelWidth  = `sips -g pixelWidth "#{tmpfile}" | awk '/:/ {print $2}'`
-    pixelHeight = `sips -g pixelHeight "#{tmpfile}" | awk '/:/ {print $2}'`
+    # system "afplay #{sound_file}"
+    system "sips -d profile --deleteColorManagementProperties \"#{tmpfile}\" > /dev/null >& /dev/null"
+    dpiWidth    = `sips -g dpiWidth "#{tmpfile}" | awk '/:/ {print $2}' > /dev/null >& /dev/null`
+    dpiHeight   = `sips -g dpiHeight "#{tmpfile}" | awk '/:/ {print $2}' > /dev/null >& /dev/null`
+    pixelWidth  = `sips -g pixelWidth "#{tmpfile}" | awk '/:/ {print $2}' > /dev/null >& /dev/null`
+    pixelHeight = `sips -g pixelHeight "#{tmpfile}" | awk '/:/ {print $2}' > /dev/null >& /dev/null`
     if (dpiWidth.to_f > 72.0 and dpiHeight.to_f > 72.0) then
         width  =  pixelWidth.to_f * 72.0 / dpiWidth.to_f
         height =  pixelHeight.to_f* 72.0 / dpiHeight.to_f
-        system "sips -s dpiWidth 72 -s dpiHeight 72 -z #{height} #{width} \"#{tmpfile}\""
+        system "sips -s dpiWidth 72 -s dpiHeight 72 -z #{height} #{width} \"#{tmpfile}\" > /dev/null >& /dev/null"
     end
   end
 end
@@ -74,7 +77,7 @@ try
 end try
 return frontAppName'`
 
-puts front_app_name
+# puts front_app_name
 # get front window title and url
 
 case front_app_name.chomp
@@ -165,7 +168,7 @@ case front_app_name.chomp
     return frontAppName & "\n" & windowTitle & "\n" & windowURL'`
 end
 
-puts front_window_data
+# puts front_window_data
 window_app, window_title, window_url = front_window_data.to_s.split("\n")
 
 note = <<EOF
@@ -190,7 +193,7 @@ metadata = JSON.generate({
   url: window_url,
   note: note
 })
-puts metadata
+# puts metadata
 
 # upload
 boundary = '----BOUNDARYBOUNDARY----'
@@ -248,6 +251,6 @@ Net::HTTP.start(HOST, PORT){|http|
 }
 
 if file then
-  system "/usr/bin/scp '#{file}' masui.sfc.keio.ac.jp:/Users/masui/Gyazz/public/upload/#{hash}#{ext}"
-  system "/usr/bin/ssh masui.sfc.keio.ac.jp chmod 644 /Users/masui/Gyazz/public/upload/#{hash}#{ext}"
+  system "/usr/bin/scp '#{file}' masui.sfc.keio.ac.jp:/Users/masui/Gyazz/public/upload/#{hash}#{ext} > /dev/null >& /dev/null"
+  system "/usr/bin/ssh masui.sfc.keio.ac.jp chmod 644 /Users/masui/Gyazz/public/upload/#{hash}#{ext} > /dev/null >& /dev/null"
 end

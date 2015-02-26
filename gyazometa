@@ -15,7 +15,7 @@ file = ARGV.shift
 idfile = "/Users/#{user}/Library/Gyazo/id"
 old_idfile = File.dirname(program) + "/gyazo.app/Contents/Resources/id"
 
-puts file
+system "open #{file}"
 
 id = ''
 if File.exist?(idfile) then
@@ -242,6 +242,6 @@ Net::HTTP.start(HOST, PORT){|http|
 }
 
 if file then
-  system "/usr/bin/scp #{file} masui.sfc.keio.ac.jp:/Users/masui/Gyazz/public/upload/#{hash}#{ext}"
+  system "/usr/bin/scp '#{file}' masui.sfc.keio.ac.jp:/Users/masui/Gyazz/public/upload/#{hash}#{ext}"
   system "/usr/bin/ssh masui.sfc.keio.ac.jp chmod 644 /Users/masui/Gyazz/public/upload/#{hash}#{ext}"
 end

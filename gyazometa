@@ -1,5 +1,11 @@
 #!/usr/bin/env ruby
 # -*- coding: utf-8 -*-
+#
+# Gyazoると同時にファイル情報/アプリ情報のメタデータをアップする
+#
+#  - 起動して一番上のアプリ上でGyazoるとアプリ情報がアップされる
+#  - ファイルをDrag&Dropすると対応アプリが開き、ファイル情報がアップされる
+#
 
 require 'net/http'
 require 'json'

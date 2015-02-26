@@ -1,0 +1,221 @@
+#!/usr/bin/env ruby
+# encoding: utf-8
+
+require 'net/http'
+require 'json'
+
+Encoding.default_external = Encoding::UTF_8
+
+# get id
+user = IO.popen("whoami", "r+").gets.chomp
+program = ARGV[0].to_s
+idfile = "/Users/#{user}/Library/Gyazo/id"
+old_idfile = File.dirname(program) + "/gyazo.app/Contents/Resources/id"
+
+id = ''
+if File.exist?(idfile) then
+  id = File.read(idfile).chomp
+elsif File.exist?(old_idfile) then
+  id = File.read(old_idfile).chomp
+end
+
+# capture png file
+tmpfile = "/tmp/image_upload#{$$}.png"
+imagefile = ARGV[1]
+sound_file = File.dirname(program) + "/shutter.aiff"
+
+if imagefile && File.exist?(imagefile) then
+  system "sips -s format png \"#{imagefile}\" --out \"#{tmpfile}\""
+else
+  system "screencapture -x -i \"#{tmpfile}\""
+  if File.exist?(tmpfile) then
+    system "afplay #{sound_file}"
+    system "sips -d profile --deleteColorManagementProperties \"#{tmpfile}\""
+    dpiWidth    = `sips -g dpiWidth "#{tmpfile}" | awk '/:/ {print $2}'`
+    dpiHeight   = `sips -g dpiHeight "#{tmpfile}" | awk '/:/ {print $2}'`
+    pixelWidth  = `sips -g pixelWidth "#{tmpfile}" | awk '/:/ {print $2}'`
+    pixelHeight = `sips -g pixelHeight "#{tmpfile}" | awk '/:/ {print $2}'`
+    if (dpiWidth.to_f > 72.0 and dpiHeight.to_f > 72.0) then
+        width  =  pixelWidth.to_f * 72.0 / dpiWidth.to_f
+        height =  pixelHeight.to_f* 72.0 / dpiHeight.to_f
+        system "sips -s dpiWidth 72 -s dpiHeight 72 -z #{height} #{width} \"#{tmpfile}\""
+    end
+  end
+end
+
+if !File.exist?(tmpfile) then
+  exit
+end
+
+imagedata = File.read(tmpfile)
+File.delete(tmpfile)
+
+# get front app name
+
+front_app_name = `osascript -e '
+set frontAppName to ""
+
+try
+  tell application "System Events"
+    set frontApp to first application process whose frontmost is true
+    set frontAppName to name of frontApp
+  end tell
+end try
+return frontAppName'`
+
+puts front_app_name
+# get front window title and url
+
+case front_app_name.chomp
+  when "Google Chrome"
+    front_window_data = `osascript -e '
+    tell application "Google Chrome"
+      set windowTitle to title of active tab of front window
+      set windowURL to URL of active tab of front window
+    end tell
+    return "Google Chrome" & "\n" & windowTitle & "\n" & windowURL'`
+
+  when "Safari"
+    front_window_data = `osascript -e '
+
+    tell application "Safari"
+      set windowTitle to name of front document
+      set windowURL to URL of front document
+    end tell
+    return "Safari" & "\n" & windowTitle & "\n" & windowURL'`
+
+  when "firefox"
+    front_window_data = `osascript -e '
+
+    set frontAppName to "Firefox"
+    tell application "Firefox"
+      set windowTitle to name of front window
+    end tell
+
+    set the clipboard to ""
+    tell application "System Events" to tell process "Firefox"
+      keystroke "l" using command down
+      keystroke "c" using command down
+    end tell
+    delay 0.2
+    set windowURL to the clipboard
+    return "Firefox" & "\n" & windowTitle & "\n" & windowURL'`
+
+  when "Opera"
+    front_window_data = `osascript -e '
+
+    try
+      tell application "System Events"
+        set frontApp to first application process whose frontmost is true
+      end tell
+    end try
+
+    tell frontApp
+      set windowTitle to name of front window
+    end tell
+
+    set the clipboard to ""
+    tell application "System Events" to tell process "Opera"
+      keystroke "l" using command down
+      keystroke "c" using command down
+    end tell
+    delay 0.2
+    set windowURL to the clipboard
+    return "Opera" & "\n" & windowTitle & "\n" & windowURL'`
+
+  else
+    front_window_data = `osascript -e '
+    global frontApp
+    set frontAppName to ""
+    set windowTitle to ""
+    set windowURL to ""
+
+    try
+      tell application "System Events"
+        set frontApp to first application process whose frontmost is true
+        set frontAppName to name of frontApp
+      end tell
+    end try
+
+    try
+      tell frontApp
+        if name of front window is not equal to missing value then
+          set windowTitle to name of front window
+        end if
+      end tell
+      try
+        tell application frontAppName
+          if name of front document is not equal to missing value then
+            set windowTitle to name of front document
+          end if
+        end tell
+      end try
+    end try
+    return frontAppName & "\n" & windowTitle & "\n" & windowURL'`
+end
+
+puts front_window_data
+window_app, window_title, windor_url = front_window_data.to_s.split("\n")
+
+metadata = JSON.generate({
+  app: window_app,
+  title: window_title,
+  url: windor_url,
+  note: "#{window_app}, #{window_title}\n#{windor_url}"
+})
+puts metadata
+
+# upload
+boundary = '----BOUNDARYBOUNDARY----'
+
+HOST = 'upload.gyazo.com'
+CGI = '/upload.cgi'
+UA   = 'Gyazo/2.1'
+PORT = 80
+
+data = <<EOF
+--#{boundary}\r
+content-disposition: form-data; name="id"\r
+\r
+#{id}\r
+--#{boundary}\r
+content-disposition: form-data; name="metadata"\r
+\r
+#{metadata}\r
+--#{boundary}\r
+content-disposition: form-data; name="imagedata"; filename="gyazo.com"\r
+\r
+#{imagedata}\r
+--#{boundary}--\r
+EOF
+
+header ={
+  'Content-Length' => data.length.to_s,
+  'Content-type' => "multipart/form-data; boundary=#{boundary}",
+  'User-Agent' => UA
+}
+
+Net::HTTP.start(HOST, PORT){|http|
+  res = http.post(CGI,data,header)
+  url = res.response.body
+  IO.popen("pbcopy","r+"){|io|
+    io.write url
+    io.close
+  }
+  system "open #{url}"
+
+  # save id
+  newid = res.response['X-Gyazo-Id']
+  if newid and newid != "" then
+    if !File.exist?(File.dirname(idfile)) then
+      Dir.mkdir(File.dirname(idfile))
+    end
+    if File.exist?(idfile) then
+      File.rename(idfile, idfile+Time.new.strftime("_%Y%m%d%H%M%S.bak"))
+    end
+    File.open(idfile,"w").print(newid)
+    if File.exist?(old_idfile) then
+      File.delete(old_idfile)
+    end
+  end
+}

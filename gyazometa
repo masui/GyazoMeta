@@ -4,7 +4,7 @@
 # Gyazoると同時にファイル情報/アプリ情報のメタデータをアップする
 #
 #  - 起動して一番上のアプリ上でGyazoるとアプリ情報がアップされる
-#  - ファイルをDrag&Dropすると対応アプリが開き、ファイル情報がアップされる
+#  - ファイルをDrag&Dropすると対応アプリが開き、ファイル本体とファイル情報がアップされる
 #
 
 require 'net/http'
@@ -178,10 +178,12 @@ EOF
 
 hash = ''
 ext = ''
+cloudurl = ''
 if file then # Drag&Dropされたファイルをアップロード
   hash = Digest::MD5.new.update(File.read(file)).to_s
   ext = (file =~ /(\.\w+)$/ ? $& : '')
-  note += "http://gyazz.masuilab.org/upload/#{hash}#{ext}" + "\n"
+  cloudurl = "http://gyazz.masuilab.org/upload/#{hash}#{ext}"
+  note += cloudurl + "\n"
   note += File.mtime(file).strftime('%Y%m%d%H%M%S') + "\n"
   note += File.mtime(file).strftime('%Y%m%d') + "\n"
   note += File.mtime(file).strftime('%Y%m') + "\n"
@@ -190,9 +192,13 @@ end
 metadata = JSON.generate({
   app: window_app,
   title: window_title,
-  url: window_url,
+  # url: window_url,
+  url: cloudurl,
   note: note
 })
+#File.open("/tmp/log","w"){ |f|
+#  f.p metadata
+#}
 # puts metadata
 
 # upload
